@@ -18,7 +18,9 @@ router.get('/get-detail/:id',authUserMiddleware ,userController.getDetailsUser);
 router.post('/send-money/:id', userController.sendMoney);
 router.post('/get-total-money/:id', userController.getTotalMoney);
 router.post('/get-log-money-send/:id', userController.getLogMoneySend);
-
+router.post('/create-goal/:id', userController.createGoal);
+router.get('/get-list-name-goal/:id', userController.getListNameGoal);
+router.post('/get-check-send-money-today/:id', userController.getCheckSendMoneyToday);
 //router.post('/refresh-token', userController.refreshToken);
 
 

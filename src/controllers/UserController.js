@@ -201,14 +201,14 @@ const getDetailsUser = async (req, res) => {
 const sendMoney = async (req, res) => {
     try {
         const userId = req.params.id
-        const {money} = req.body
+        const {money, nameGoal} = req.body
         if(!money || !userId){
             return res.status(200).json({
                 status: 'ERR',
                 message: 'The input is required'
             })
         }
-        const sendMoney = {userId, money}
+        const sendMoney = {userId, nameGoal, money}
         const response = await UserService.sendMoney(sendMoney)
         return res.status(200).json(response)
     } catch (e) {
@@ -221,13 +221,14 @@ const sendMoney = async (req, res) => {
 const getTotalMoney = async (req, res) => {
     try {
         const userId = req.params.id
+        const nameGoal = req.body
         if(!userId){
             return res.status(200).json({
                 status: 'ERR',
                 message: 'The input is required'
             })
         }
-        const response = await UserService.getTotalMoney(userId)
+        const response = await UserService.getTotalMoney(userId, nameGoal)
         return res.status(200).json(response)
     } catch (e) {
         return res.status(404).json({ 
@@ -239,13 +240,71 @@ const getTotalMoney = async (req, res) => {
 const getLogMoneySend = async (req, res) => {
     try {
         const userId = req.params.id
+        const nameGoal = req.body
+        if(!userId || !nameGoal){
+            return res.status(200).json({
+                status: 'ERR',
+                message: 'The input is required'
+            })
+        }
+        const response = await UserService.getLogMoneySend(userId, nameGoal)
+        return res.status(200).json(response)
+    } catch (e) {
+        return res.status(404).json({ 
+            message: e
+        })
+    }
+}
+
+const createGoal = async (req, res) => {
+    try {
+        const userId = req.params.id
+        const {nameGoal, goalMoney} = req.body
+        if(!nameGoal || !goalMoney){
+            return res.status(200).json({
+                status: 'ERR',
+                message: 'The input is required'
+            })
+        }
+        const goal = {userId, nameGoal, goalMoney}
+        const response = await UserService.createGoal(goal)
+        return res.status(200).json(response)
+    } catch (e) {
+        return res.status(404).json({ 
+            message: e
+        })
+    }
+}
+
+const getListNameGoal = async (req, res) => {
+    try {
+        const userId = req.params.id
         if(!userId){
             return res.status(200).json({
                 status: 'ERR',
                 message: 'The input is required'
             })
         }
-        const response = await UserService.getLogMoneySend(userId)
+        const response = await UserService.getListNameGoal(userId)
+        return res.status(200).json(response)
+    } catch (e) {
+        return res.status(404).json({ 
+            message: e
+        })
+    }
+}
+
+const getCheckSendMoneyToday = async (req, res) => {
+    try {
+        const userId = req.params.id
+        const nameGoal = req.body
+        if(!userId){
+            return res.status(200).json({
+                status: 'ERR',
+                message: 'The input is required'
+            })
+        }
+        const response = await UserService.getCheckSendMoneyToday(userId, nameGoal)
         return res.status(200).json(response)
     } catch (e) {
         return res.status(404).json({ 
@@ -265,5 +324,8 @@ module.exports = {
     getDetailsUser,
     sendMoney,
     getTotalMoney,
-    getLogMoneySend
+    getLogMoneySend,
+    createGoal,
+    getListNameGoal,
+    getCheckSendMoneyToday
 }

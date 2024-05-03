@@ -411,24 +411,25 @@ const deleteManyUser = (ids) => {
   });
 };
 
+
 const sendMoney = async (data) => {
   try {
-    const { userId, money } = data;
+    const { userId, nameGoal, money } = data;
     console.log(userId);
+    console.log(nameGoal);
     console.log(money);
 
     // Check user existence
-    const checkUser = await User.findOne({ _id: userId });
+    const checkUser = await Piggy.findOne({ user: userId});
     if (!checkUser) {
       return {
         status: "error",
-        message: "The user does not exist",
+        message: "The user or name goal does not exist",
       };
     }
 
-    //const time = new Date();
-    const time = new Date("2024-04-27T09:00:48.756Z");
-    const checkPiggy = await Piggy.findOne({ user: userId });
+    const time = new Date();
+    const checkPiggy = await Piggy.findOne({ user: userId, nameGoal: nameGoal });
     if (checkPiggy) {
       const timeMonth = time.getMonth();
       const timeDate = time.getDate();
@@ -447,12 +448,12 @@ const sendMoney = async (data) => {
         if (moneySendEntry) {
           // If entry found, update money and totalMoney
           moneySendEntry.money += money;
-          checkPiggy.totalMoney += money;
+          checkPiggy.currentMoney += money;
           await checkPiggy.save();
         } else {
           // If no entry found, push a new entry to moneySend array
           checkPiggy.moneySend.push({ money: money, time: time });
-          checkPiggy.totalMoney += money;
+          checkPiggy.currentMoney += money;
           await checkPiggy.save();
         }
 
@@ -472,7 +473,7 @@ const sendMoney = async (data) => {
               },
             },
             $inc: {
-              totalMoney: money,
+              currentMoney: money,
             },
           },
           { new: true }
@@ -490,7 +491,7 @@ const sendMoney = async (data) => {
     const newPiggy = await Piggy.create({
       user: userId,
       moneySend: [{ money: money, time: time }],
-      totalMoney: money,
+      currentMoney: money,
     });
 
     return {
@@ -504,7 +505,7 @@ const sendMoney = async (data) => {
   }
 };
 
-const getTotalMoney = async (userId) => {
+const getTotalMoney = async (userId, nameGoal) => {
   try {
     const checkUser = await User.findOne({ _id: userId });
     if (!checkUser) {
@@ -514,17 +515,21 @@ const getTotalMoney = async (userId) => {
       };
     }
 
-    const checkPiggy = await Piggy.findOne({ user: userId });
+    const checkPiggy = await Piggy.findOne({
+      user: userId,
+      nameGoal: nameGoal.nameGoal,
+    });
     if (!checkPiggy) {
       return {
         status: "error",
         message: "The piggy does not exist",
       };
     }
-
     const today = new Date();
-    const currentMonth = today.getMonth() + 1; // Note: Tháng bắt đầu từ 0
+    const currentMonth = today.getMonth() + 1; // Lưu ý: Tháng bắt đầu từ 0
     const currentYear = today.getFullYear();
+    const currentDay = today.getDate();
+    const currentDayOfWeek = today.getDay();
 
     const moneyByDateMap = new Map();
     const moneyByDayOfWeekMap = new Map();
@@ -532,13 +537,24 @@ const getTotalMoney = async (userId) => {
     checkPiggy.moneySend.forEach((entry) => {
       const entryMonth = entry.time.getMonth() + 1;
       const entryYear = entry.time.getFullYear();
-      const day = entry.time.getDate();
-      const dayOfWeek = entry.time.getDay();
-      
+      const entryDay = entry.time.getDate();
+    
+      // Xử lý các mục trong tháng hiện tại
       if (entryMonth === currentMonth && entryYear === currentYear) {
-        const currentTotalByDate = moneyByDateMap.get(day) || 0;
+        const currentTotalByDate = moneyByDateMap.get(entryDay) || 0;
+        moneyByDateMap.set(entryDay, currentTotalByDate + entry.money);
+      }
+    
+      // Xử lý các mục trong tuần hiện tại
+      if (
+        entryMonth === currentMonth &&
+        entryYear === currentYear &&
+        entryDay >= currentDay - currentDayOfWeek &&
+        entryDay <= currentDay + (7 - currentDayOfWeek)
+      ) {
+        const entryDayOfWeek = entry.time.getDay();
+        let dayOfWeek = entryDayOfWeek === 0 ? 7 : entryDayOfWeek; // Chuyển ngày chủ nhật thành 7
         const currentTotalByDayOfWeek = moneyByDayOfWeekMap.get(dayOfWeek) || 0;
-        moneyByDateMap.set(day, currentTotalByDate + entry.money);
         moneyByDayOfWeekMap.set(dayOfWeek, currentTotalByDayOfWeek + entry.money);
       }
     });
@@ -549,13 +565,14 @@ const getTotalMoney = async (userId) => {
     console.log("listMoneySendbyMonth:", listMoneySendByMonth);
     console.log("listMoneySendbyDayOfWeek:", listMoneySendByWeek);
 
-    const totalMoney = checkPiggy.totalMoney;
+    const currentMoney = checkPiggy.currentMoney;
     return {
       status: "success",
       message: "Get total money successfully",
       listMoneySendByMonth: listMoneySendByMonth,
       listMoneySendByWeek: listMoneySendByWeek,
-      totalMoney: totalMoney,
+      currentMoney: currentMoney,
+      goalMoney: checkPiggy.goalMoney,
     };
   } catch (error) {
     console.error("Error:", error);
@@ -563,8 +580,10 @@ const getTotalMoney = async (userId) => {
   }
 };
 
-const getLogMoneySend = async (userId) => {
+const getLogMoneySend = async (userId, data) => {
   try {
+    console.log(userId);
+    console.log(data);
     const checkUser = await User.findOne({ _id: userId });
     if (!checkUser) {
       return {
@@ -573,7 +592,7 @@ const getLogMoneySend = async (userId) => {
       };
     }
 
-    const checkPiggy = await Piggy.findOne({ user: userId });
+    const checkPiggy = await Piggy.findOne({ user: userId, nameGoal: data.nameGoal});
     if (!checkPiggy) {
       return {
         status: "error",
@@ -587,6 +606,117 @@ const getLogMoneySend = async (userId) => {
       message: "Get log money send successfully",
       data: moneySend,
     };
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+};
+
+const createGoal = async (data) => {
+  try {
+    const { userId, nameGoal, goalMoney } = data;
+    console.log('newgoal',data);
+    const check = await Piggy.findOne({ nameGoal: nameGoal });
+    if (check) {
+      return {
+        status: "error",
+        message: "The goal name already exists",
+      };
+    }
+    const newGoal = await Piggy.create({
+      user: userId,
+      nameGoal: nameGoal,
+      currentMoney: 0,
+      goalMoney: goalMoney,
+    });
+    console.log(newGoal);
+    return {
+      status: "success",
+      message: "Create goal successfully",
+      data: newGoal,
+    };
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+};
+
+const getListNameGoal = async (userId) => {
+  try {
+    console.log(userId);
+    const checkUser = await User.findOne({ _id: userId });
+    if (!checkUser) {
+      return {
+        status: "error",
+        message: "The user does not exist",
+      };
+    }
+
+    const checkPiggy = await Piggy.find({ user: userId });
+    if (!checkPiggy || checkPiggy.length === 0) {
+      // Kiểm tra nếu không có đối tượng nào được tìm thấy
+      return {
+        status: "error",
+        message: "The piggy does not exist",
+      };
+    }
+
+    const listNameGoal = checkPiggy.map((piggy) => piggy.nameGoal); // Sử dụng map để trích xuất nameGoal từ mỗi đối tượng Piggy
+    console.log(listNameGoal);
+    return {
+      status: "success",
+      message: "Get list name goal successfully",
+      data: listNameGoal,
+    };
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+};
+
+const getCheckSendMoneyToday = async (userId, data) => {
+  try {
+    const checkUser = await User.findOne({ _id: userId });
+    if (!checkUser) {
+      return {
+        status: "error",
+        message: "The user does not exist",
+      };
+    }
+
+    // Lấy ngày hôm nay
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+    // Tìm Piggy của người dùng có ID là userId và moneySend.time nằm trong khoảng thời gian của ngày hôm nay
+    const piggyWithSendMoneyToday = await Piggy.findOne({
+      user: userId,
+      nameGoal: data.nameGoal,
+      "moneySend.time": {
+        $gte: startOfToday,
+        $lt: endOfToday,
+      },
+    });
+
+    if (piggyWithSendMoneyToday) {
+      // Lọc chỉ các mục trong moneySend có trường time trùng với ngày hôm nay
+      const moneySendToday = piggyWithSendMoneyToday.moneySend.filter((entry) => {
+        const entryDate = new Date(entry.time.getFullYear(), entry.time.getMonth(), entry.time.getDate());
+        return entryDate.getTime() === startOfToday.getTime();
+      });
+
+      return {
+        status: "success",
+        message: "There are entries in moneySend for today",
+        data: moneySendToday,
+      };
+    } else {
+      return {
+        status: "success",
+        message: "There are no entries in moneySend for today",
+      };
+    }
   } catch (error) {
     console.error("Error:", error);
     throw error;
@@ -610,5 +740,8 @@ module.exports = {
   getDetailsUserWithCart,
   sendMoney,
   getTotalMoney,
-  getLogMoneySend
+  getLogMoneySend,
+  createGoal,
+  getListNameGoal,
+  getCheckSendMoneyToday
 };
